@@ -29,11 +29,13 @@ http.listen(port, () => {
         const userId = socket.handshake.query.userId;
 
         const listChatsByuser = async (data) => {
+            console.log(data)
             const chats = await userToChats.listChatsByUser(data.userId)
         
             console.log(chats);
             const fullChats = await Promise.all(chats.map(async (chat) => {
                 if (!chat.isGroupChat) {
+                    console.log(chat.name);
                     const userIds = chat.name.split(':')
                     const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
                     const secondUser = await User.findById(secondUserId)
@@ -106,8 +108,8 @@ http.listen(port, () => {
             else {
                 socketIO.sockets.to(userId).emit('createDialog', await userToChats.getUserToChat(firstUser.id, chatCandidate._id))
             }
-            listChatsByuser({userId: firstUser.id});
-            listChatsByuser({userId: secondUser.id});
+            await listChatsByuser({userId: firstUser.id});
+            await listChatsByuser({userId: secondUser.id});
 
         })
 
@@ -132,7 +134,7 @@ http.listen(port, () => {
             socketIO.sockets.to(userId).emit('createGroupChat', {chatId: chat._id});
         })
 
-        socket.on('listChatsByUser', () => listChatsByuser(userId))
+        socket.on('listChatsByUser', async () => await listChatsByuser({userId: userId}))
 
         socket.on('getChatInfo', async (data) => {
             socket.join(data.chatId)
