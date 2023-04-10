@@ -18,10 +18,19 @@ module.exports.addUserToChat = async function (userId, chatId, isPinned) {
     }
 }
 
+module.exports.getUserToChat = async function (userId, chatId) {
+    const userToChat = await UserToChat.findOne({ userId, chatId })
+    return userToChat
+}
+
 module.exports.listChatsByUser = async function (userId) {
     const userToChats = await UserToChat.find({ userId })
 
-    const fullChats = await Promise.all(userToChats.map(async (el) => await Chat.findById(el.chatId)))
+    const fullChats = await Promise.all(userToChats.map(async (el) => {
+        const chat = await Chat.findById(el.chatId);
+        return {...chat._doc, isPinned: el.isPinned}
+   
+    }))
 
     return fullChats
 

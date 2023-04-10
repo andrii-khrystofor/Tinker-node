@@ -13,6 +13,11 @@ const chatSchema = new Schema({
     description: {
         type: String
     },
+    messages: [{
+        type: Schema.Types.ObjectId,
+        ref: 'messages',
+        required: true
+    }],
 })
 
 module.exports = mongoose.model('chats', chatSchema)
