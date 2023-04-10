@@ -6,6 +6,12 @@ const keys = require('../config/keys')
 
 
 module.exports.login = async function (req, res) {
+  if (!req.compliance){
+    res.status(400).json({
+      error: "Bad request",
+    });
+    return;
+  }
   const candidate = await User.findOne({ email: req.body.email })
 
   if (candidate) {
@@ -35,6 +41,12 @@ module.exports.login = async function (req, res) {
 
 
 module.exports.signup = async function (req, res) {
+  if (!req.compliance){
+    res.status(400).json({
+      error: "Bad request",
+    });
+    return;
+  }
 
   const candidate = await User.findOne({ email: req.body.email })
 
