@@ -38,6 +38,7 @@ http.listen(port, () => {
                     console.log(chat.name);
                     const userIds = chat.name.split(':')
                     const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
+                    console.log(secondUserId);
                     const secondUser = await User.findById(secondUserId)
                     chat.name = secondUser.name
                     return chat
@@ -109,7 +110,7 @@ http.listen(port, () => {
                 socketIO.sockets.to(userId).emit('createDialog', await userToChats.getUserToChat(firstUser.id, chatCandidate._id))
             }
             await listChatsByuser({userId: firstUser.id});
-            await listChatsByuser({userId: secondUser.id});
+            await listChatsByuser({userId: secondUser._id});
 
         })
 
