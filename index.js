@@ -29,13 +29,13 @@ http.listen(port, () => {
         const userId = socket.handshake.query.userId;
 
         const listChatsByuser = async (data) => {
-            const chats = await userToChats.listChatsByUser(userId)
+            const chats = await userToChats.listChatsByUser(data.userId)
         
             console.log(chats);
             const fullChats = await Promise.all(chats.map(async (chat) => {
                 if (!chat.isGroupChat) {
                     const userIds = chat.name.split(':')
-                    const secondUserId = userIds[0] === userId ? userIds[1] : userIds[0]
+                    const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
                     const secondUser = await User.findById(secondUserId)
                     chat.name = secondUser.name
                     return chat
@@ -43,7 +43,7 @@ http.listen(port, () => {
                     return chat;
                 } 
             }))
-            socketIO.sockets.to(userId).emit('listChatsByUser', fullChats)
+            socketIO.sockets.to(data.userId).emit('listChatsByUser', fullChats)
         }
 
         console.log(`New connection`, userId);
@@ -101,11 +101,13 @@ http.listen(port, () => {
                 await userToChats.addUserToChat(secondUser._id, chat._id)
 
                 socketIO.sockets.to(userId).emit('createDialog', await userToChats.addUserToChat(firstUser.id, chat._id))
+
             }
             else {
                 socketIO.sockets.to(userId).emit('createDialog', await userToChats.getUserToChat(firstUser.id, chatCandidate._id))
             }
             listChatsByuser({userId: firstUser.id});
+            listChatsByuser({userId: secondUser.id});
 
         })
 
@@ -124,10 +126,13 @@ http.listen(port, () => {
                 await userToChats.addUserToChat(user, chat._id);
             });
 
+            users.forEach(user => {
+                listChatsByuser({userId: user});
+            })
             socketIO.sockets.to(userId).emit('createGroupChat', {chatId: chat._id});
         })
 
-        socket.on('listChatsByUser', listChatsByuser)
+        socket.on('listChatsByUser', listChatsByuser(userId))
 
         socket.on('getChatInfo', async (data) => {
             socket.join(data.chatId)
