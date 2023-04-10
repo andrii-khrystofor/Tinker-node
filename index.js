@@ -132,7 +132,7 @@ http.listen(port, () => {
             socketIO.sockets.to(userId).emit('createGroupChat', {chatId: chat._id});
         })
 
-        socket.on('listChatsByUser', listChatsByuser(userId))
+        socket.on('listChatsByUser', () => listChatsByuser(userId))
 
         socket.on('getChatInfo', async (data) => {
             socket.join(data.chatId)
