@@ -7,6 +7,7 @@ const keys = require('../config/keys')
 
 module.exports.login = async function (req, res) {
   if (!req.compliance){
+    console.log(req.violation);
     res.status(400).json({
       error: "Bad request",
     });

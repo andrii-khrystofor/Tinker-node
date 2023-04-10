@@ -25,11 +25,11 @@ const userSchema = new Schema({
 })
 
 const loginShema = Joi.object().keys({
-    email: Joi.string().alphanum().min(3).max(30).required(),
+    email: Joi.string().min(3).max(30).required().email(),
     password: Joi.string().required(),
   });
 const signupSchema =  Joi.object().keys({
-    email: Joi.string().alphanum().min(3).max(30).required().email(),
+    email: Joi.string().min(3).max(30).required().email(),
     password: Joi.string().required(),
     name: Joi.string().alphanum().min(3).max(30).required(),
     username: Joi.string().alphanum().min(3).max(30).required(),
