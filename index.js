@@ -5,6 +5,8 @@ const socketIO = require('socket.io')(http, {
         origin: "*"
     }
 })
+
+const contract = require("express-contract").contract;
 const port = process.env.PORT || 3000
 
 
@@ -15,23 +17,48 @@ const keys = require('./config/keys')
 const jwt = require('jsonwebtoken')
 
 const User = require('./models/User')
+const updateUserSchema = require('./models/User').updateUserSchema
 const Chat = require('./models/Chat')
 const Message = require('./models/Message')
 
 http.listen(port, () => {
     console.log(`Server has been started on ${port}`);
     socketIO.on('connection', (socket) => {
-        const connectionId = socket.client.sockets.entries().next().value[0]
+        console.log(socket.handshake.query.userId);
 
-        console.log(`New connection`, connectionId);
+        const userId = socket.handshake.query.userId;
 
-        socket.join(connectionId)
+        const listChatsByuser = async (data) => {
+            console.log(data)
+            const chats = await userToChats.listChatsByUser(data.userId)
+        
+            console.log(chats);
+            const fullChats = await Promise.all(chats.map(async (chat) => {
+                if (!chat.isGroupChat) {
+                    console.log(chat.name);
+                    const userIds = chat.name.split(':')
+                    const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
+                    console.log(secondUserId);
+                    const secondUser = await User.findById(secondUserId)
+                    chat.name = secondUser.name
+                    return chat
+                } else {
+                    return chat;
+                } 
+            }))
+            socketIO.sockets.to(data.userId).emit('listChatsByUser', fullChats)
+        }
+
+        console.log(`New connection`, userId);
+
+        socket.join(userId)
 
         socket.on('updateUser', async (data) => {
             try {
                 const updatedUser = await User.findOneAndUpdate(
-                    { _id: data.id },
-                    { $set: data.updatedUser }
+                    { _id: userId },
+                    { $set: data.updatedUser },
+                    {new: true}
                 )
 
                 const accessToken = jwt.sign({
@@ -41,7 +68,7 @@ http.listen(port, () => {
                     username: updatedUser.username
                 }, keys.jwt, { expiresIn: 3600 })
 
-                socketIO.sockets.to(connectionId).emit('updateUser', accessToken);
+                socketIO.sockets.to(userId).emit('updateUser', accessToken);
             }
             catch (e) {
                 console.log(e)
@@ -52,13 +79,13 @@ http.listen(port, () => {
             contacts.addContact(data.firstUser, data.secondUser).then(
                 async () => {
                     const contactsList = await contacts.getContacts(data.firstUser);
-                    socketIO.sockets.to(connectionId).emit('getContacts', contactsList);
+                    socketIO.sockets.to(userId).emit('getContacts', contactsList);
                 })
         });
 
         socket.on('getContacts', async (data) => {
-            const contactsList = await contacts.getContacts(data.user);
-            socketIO.sockets.to(connectionId).emit('getContacts', contactsList)
+            const contactsList = await contacts.getContacts(userId);
+            socketIO.sockets.to(userId).emit('getContacts', contactsList)
         })
 
         socket.on('createDialog', async (data) => {
@@ -67,7 +94,6 @@ http.listen(port, () => {
 
             const chatCandidate = await Chat.findOne({ name: `${firstUser.id}:${secondUser._id}` })
 
-            console.log('CHAT CANDIDATE', chatCandidate)
 
             if (!chatCandidate) {
                 const chat = await chats.createChat({
@@ -77,32 +103,43 @@ http.listen(port, () => {
 
                 await userToChats.addUserToChat(secondUser._id, chat._id)
 
-                socketIO.sockets.to(connectionId).emit('createDialog', await userToChats.addUserToChat(firstUser.id, chat._id))
+                socketIO.sockets.to(userId).emit('createDialog', await userToChats.addUserToChat(firstUser.id, chat._id))
+
             }
             else {
-                socketIO.sockets.to(connectionId).emit('createDialog', await userToChats.getUserToChat(firstUser.id, chatCandidate._id))
+                socketIO.sockets.to(userId).emit('createDialog', await userToChats.getUserToChat(firstUser.id, chatCandidate._id))
             }
+            await listChatsByuser({userId: firstUser.id});
+            await listChatsByuser({userId: secondUser._id});
+
         })
 
-        socket.on('listChatsByUser', async (data) => {
-            const chats = await userToChats.listChatsByUser(data.userId)
 
-            const fullChats = await Promise.all(chats.map(async (chat) => {
-                if (!chat.isGroupChat) {
-                    const userIds = chat.name.split(':')
-                    const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
-                    const secondUser = await User.findById(secondUserId)
-                    console.log(secondUser)
-                    chat.name = secondUser.name
-                    return chat
-                }
-            }))
-            socketIO.sockets.to(connectionId).emit('listChatsByUser', fullChats)
+        socket.on('createGroupChat', async (data) => {
+            const users = data.users;
+            console.log(users);
+            const name = data.name;
+
+            const chat = await chats.createChat({
+                name: name,
+                isGroupChat: true
+            })
+
+            await users.forEach(async (user) => {
+                await userToChats.addUserToChat(user, chat._id);
+            });
+
+            users.forEach(user => {
+                listChatsByuser({userId: user});
+            })
+            socketIO.sockets.to(userId).emit('createGroupChat', {chatId: chat._id});
         })
+
+        socket.on('listChatsByUser', async () => await listChatsByuser({userId: userId}))
 
         socket.on('getChatInfo', async (data) => {
             socket.join(data.chatId)
-            socketIO.sockets.to(connectionId).emit('getChatInfo', await chats.getChatInfo(data))
+            socketIO.sockets.to(userId).emit('getChatInfo', await chats.getChatInfo(data))
         })
 
         socket.on('sendMessage', async (data) => {
@@ -113,7 +150,6 @@ http.listen(port, () => {
                 isPinned: false
             })
 
-            console.log(messageToSave)
             try {
                 const savedMessage = await messageToSave.save()
                 const chat = await Chat.findById(data.chatId)
@@ -145,3 +181,4 @@ http.listen(port, () => {
         })
     })
 })
+

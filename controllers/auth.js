@@ -6,6 +6,13 @@ const keys = require('../config/keys')
 
 
 module.exports.login = async function (req, res) {
+  if (!req.compliance){
+    console.log(req.violation);
+    res.status(400).json({
+      message: req.violation,
+    });
+    return;
+  }
   const candidate = await User.findOne({ email: req.body.email })
 
   if (candidate) {
@@ -33,8 +40,22 @@ module.exports.login = async function (req, res) {
   }
 }
 
+const getErrorCode = (violation) => {
+  if(violation.details[0].message?.includes('/^.+@knu.ua$/'))
+  return 410;
+  else return 411;
+}
 
 module.exports.signup = async function (req, res) {
+  if (!req.compliance){
+    
+    console.log(req.violation);
+    const code = getErrorCode(req.violation)
+    res.status(code).json({
+      message: req.violation,
+    });
+    return;
+  }
 
   const candidate = await User.findOne({ email: req.body.email })
 

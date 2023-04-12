@@ -18,12 +18,16 @@ module.exports.createChat = async function (data) {
 
 module.exports.getChatInfo = async function (data) {
     const chat = await Chat.findById(data.chatId)
-    if (chat.isGroupChat) return chat
+    if (chat){
+        if (chat.isGroupChat) return chat
 
-    const userIds = chat.name.split(':')
-    const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
-    const secondUser = await User.findById(secondUserId)
-    console.log(secondUser)
-    chat.name = secondUser.name
-    return chat
+        const userIds = chat.name.split(':')
+        const secondUserId = userIds[0] === data.userId ? userIds[1] : userIds[0]
+        const secondUser = await User.findById(secondUserId)
+        console.log(secondUser)
+        chat.name = secondUser.name
+        return chat
+    } else {
+        return 
+    }
 }
